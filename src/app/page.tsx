@@ -70,7 +70,7 @@ export default function Home() {
     setCreating(true);
     try {
       const res = await fetch('/api/tasks', {
-        method: 'PATCH', // 프로젝트 생성용으로 PATCH 사용 (또는 별도 엔드포인트)
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectName: newProjectName }),
       });
@@ -79,9 +79,9 @@ export default function Home() {
         setShowModal(false);
         setNewProjectName('');
         await fetchWorkspaces();
-        alert('New project created successfully!');
+        alert('New project created!');
       } else {
-        alert('Failed to create project. Check bridge connection.');
+        alert('Failed to create project');
       }
     } catch (err) {
       alert('Error creating project');
@@ -93,19 +93,17 @@ export default function Home() {
   const isBridgeOffline = workspaces.some(w => w.id === 'error');
 
   return (
-    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: '24px', padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+    <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, background: 'linear-gradient(to right, #8b5cf6, #ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             Antigravity Link
           </h1>
-          <p style={{ fontSize: '0.8rem', opacity: 0.5, marginTop: '2px' }}>Control from anywhere</p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button 
             onClick={() => setShowModal(true)}
             style={{ background: 'var(--accent-primary)', border: 'none', color: 'white', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 'bold' }}
-            title="New Project"
           >
             +
           </button>
@@ -118,39 +116,45 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Workspace Selector */}
-      <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <h3 style={{ fontSize: '0.8rem', fontWeight: 600, opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Active Agents
+      {/* Workspace Selector - Now as a Dropdown */}
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <h3 style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Selected Agent
         </h3>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        <select
+          value={selectedWorkspace}
+          onChange={(e) => setSelectedWorkspace(e.target.value)}
+          disabled={isBridgeOffline}
+          style={{
+            width: '100%',
+            padding: '14px 20px',
+            borderRadius: '12px',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: 'white',
+            fontSize: '1rem',
+            fontWeight: 600,
+            outline: 'none',
+            appearance: 'none',
+            backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E")',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'right 1.2rem top 50%',
+            backgroundSize: '0.65rem auto',
+            cursor: 'pointer'
+          }}
+        >
+          {isBridgeOffline && <option value="error">🔴 Bridge Offline - Check Tunnel</option>}
           {workspaces.map(ws => (
-            <button
-              key={ws.id}
-              onClick={() => setSelectedWorkspace(ws.id)}
-              disabled={ws.id === 'error'}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '20px',
-                border: selectedWorkspace === ws.id ? '2px solid #8b5cf6' : '1px solid rgba(255,255,255,0.1)',
-                backgroundColor: selectedWorkspace === ws.id ? 'rgba(139, 92, 246, 0.15)' : 'rgba(255,255,255,0.03)',
-                color: selectedWorkspace === ws.id ? 'white' : 'rgba(255,255,255,0.5)',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                cursor: ws.id === 'error' ? 'default' : 'pointer',
-                transition: 'all 0.2s',
-                opacity: ws.id === 'error' ? 0.5 : 1
-              }}
-            >
-              <span style={{ marginRight: '4px' }}>{ws.id === 'error' ? '🔴' : '🟢'}</span>
-              {ws.name}
-            </button>
+            <option key={ws.id} value={ws.id} style={{ background: '#17171a', color: 'white' }}>
+              {ws.id === 'error' ? '🔴' : '🟢'} {ws.name}
+            </option>
           ))}
-        </div>
+          {!loading && workspaces.length === 0 && <option value="">No Active Agents Found</option>}
+        </select>
       </section>
 
       {/* Task Input Area */}
-      <form onSubmit={handleSubmit} className="glass" style={{ flex: 1, minHeight: '250px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
+      <form onSubmit={handleSubmit} className="glass" style={{ flex: 1, minHeight: '300px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -162,8 +166,8 @@ export default function Home() {
             background: 'transparent',
             border: 'none',
             color: 'white',
-            fontSize: '1.1rem',
-            lineHeight: '1.5',
+            fontSize: '1.2rem',
+            lineHeight: '1.6',
             resize: 'none',
             outline: 'none',
             padding: '0',
@@ -171,36 +175,35 @@ export default function Home() {
           }}
         />
         
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: 'auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <span style={{ fontSize: '0.7rem', opacity: 0.4 }}>Sender</span>
-              <input 
-                value={sender}
-                onChange={(e) => setSender(e.target.value)}
-                style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', outline: 'none', width: '100px' }}
-              />
-            </div>
-            
-            <button
-              type="submit"
-              disabled={status === 'sending' || isBridgeOffline || !message.trim()}
-              className="premium-gradient glow-effect"
-              style={{
-                padding: '12px 24px',
-                borderRadius: '12px',
-                border: 'none',
-                color: 'white',
-                fontWeight: 700,
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                opacity: (status === 'sending' || isBridgeOffline || !message.trim()) ? 0.5 : 1,
-                minWidth: '120px'
-              }}
-            >
-              {status === 'sending' ? '...' : status === 'success' ? 'Sent!' : 'Submit'}
-            </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <span style={{ fontSize: '0.7rem', opacity: 0.4 }}>Sender</span>
+            <input 
+              value={sender}
+              onChange={(e) => setSender(e.target.value)}
+              style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem', outline: 'none', width: '120px' }}
+            />
           </div>
+          
+          <button
+            type="submit"
+            disabled={status === 'sending' || isBridgeOffline || !message.trim()}
+            className="premium-gradient glow-effect"
+            style={{
+              padding: '12px 32px',
+              borderRadius: '12px',
+              border: 'none',
+              color: 'white',
+              fontWeight: 700,
+              fontSize: '1rem',
+              cursor: 'pointer',
+              opacity: (status === 'sending' || isBridgeOffline || !message.trim()) ? 0.5 : 1,
+              transition: 'transform 0.2s',
+              minWidth: '140px'
+            }}
+          >
+            {status === 'sending' ? 'Sending...' : status === 'success' ? 'Sent! ✅' : 'Submit Task'}
+          </button>
         </div>
       </form>
 
@@ -228,19 +231,21 @@ export default function Home() {
         </div>
       )}
 
-      {/* Stats - Compact on Mobile */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-          <div className="glass" style={{ padding: '12px', textAlign: 'center' }}>
-              <p style={{ opacity: 0.4, fontSize: '0.6rem', textTransform: 'uppercase' }}>Sys</p>
-              <p style={{ fontSize: '0.8rem', fontWeight: 600, color: isBridgeOffline ? '#ef4444' : '#10b981' }}>{isBridgeOffline ? 'OFF' : 'ON'}</p>
+      {/* Status Indicators */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+          <div className="glass" style={{ padding: '16px', textAlign: 'center' }}>
+              <p style={{ opacity: 0.4, fontSize: '0.7rem', textTransform: 'uppercase' }}>System</p>
+              <p style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '4px', color: isBridgeOffline ? '#ef4444' : '#10b981' }}>
+                {isBridgeOffline ? 'Offline' : 'Online'}
+              </p>
           </div>
-          <div className="glass" style={{ padding: '12px', textAlign: 'center' }}>
-              <p style={{ opacity: 0.4, fontSize: '0.6rem', textTransform: 'uppercase' }}>Agents</p>
-              <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>{workspaces.length}</p>
+          <div className="glass" style={{ padding: '16px', textAlign: 'center' }}>
+              <p style={{ opacity: 0.4, fontSize: '0.7rem', textTransform: 'uppercase' }}>Agents</p>
+              <p style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '4px' }}>{workspaces.length}</p>
           </div>
-          <div className="glass" style={{ padding: '12px', textAlign: 'center' }}>
-              <p style={{ opacity: 0.4, fontSize: '0.6rem', textTransform: 'uppercase' }}>Mode</p>
-              <p style={{ fontSize: '0.8rem', fontWeight: 600 }}>Sync</p>
+          <div className="glass" style={{ padding: '16px', textAlign: 'center' }}>
+              <p style={{ opacity: 0.4, fontSize: '0.7rem', textTransform: 'uppercase' }}>Discovery</p>
+              <p style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '4px' }}>Dynamic</p>
           </div>
       </div>
     </main>
