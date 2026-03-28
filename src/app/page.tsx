@@ -21,7 +21,19 @@ export default function Home() {
   
   // Real-time bidirectional state
   const [responses, setResponses] = useState<string>('');
+  const [isWaiting, setIsWaiting] = useState(false);
+  const [loadingFrame, setLoadingFrame] = useState(0);
   const responseAreaRef = useRef<HTMLDivElement>(null);
+
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+  useEffect(() => {
+    if (!isWaiting) return;
+    const interval = setInterval(() => {
+      setLoadingFrame(f => (f + 1) % frames.length);
+    }, 80);
+    return () => clearInterval(interval);
+  }, [isWaiting]);
 
   const fetchWorkspaces = async () => {
     setLoading(true);
@@ -56,6 +68,9 @@ export default function Home() {
         if (res.ok) {
            const data = await res.json();
            if (data.content !== undefined) {
+             if (responses && data.content.length > responses.length) {
+               setIsWaiting(false);
+             }
              setResponses(data.content);
            }
         }
@@ -81,6 +96,7 @@ export default function Home() {
     if (!message.trim() || !selectedWorkspace) return;
 
     setStatus('sending');
+    setIsWaiting(true);
     try {
       const res = await fetch('/api/tasks', {
         method: 'POST',
@@ -203,6 +219,11 @@ export default function Home() {
         }}
       >
         {responses ? responses : (isBridgeOffline ? "Cannot reach agent workspace." : "No responses yet. Send a task to begin.")}
+        {isWaiting && (
+          <div style={{ color: '#8b5cf6', marginTop: '8px', fontWeight: 'bold' }}>
+            {frames[loadingFrame]} Agent is processing your request...
+          </div>
+        )}
       </section>
 
       {/* Task Input Area */}
