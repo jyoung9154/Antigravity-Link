@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const url = require('url');
 
 const PORT = 3001;
 const PLAYGROUND_ROOT = '/Users/jaeyoung/.gemini/antigravity/playground';
@@ -47,7 +48,30 @@ const server = http.createServer((req, res) => {
 
     if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
 
+    const parsedUrl = url.parse(req.url, true);
+
     if (req.method === 'GET') {
+        if (parsedUrl.pathname === '/responses') {
+            const workspaceId = parsedUrl.query.workspaceId;
+            const workspaces = discoverWorkspaces();
+            const target = workspaces.find(w => w.id === workspaceId);
+
+            if (!target) {
+                res.writeHead(404);
+                return res.end(JSON.stringify({ error: 'Workspace not found' }));
+            }
+
+            const responseFile = path.join(target.path, 'remote_responses.md');
+            let content = '';
+            if (fs.existsSync(responseFile)) {
+                content = fs.readFileSync(responseFile, 'utf8');
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ content }));
+        }
+
+        // Default GET (workspaces list)
         const workspaces = discoverWorkspaces();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ workspaces }));
@@ -60,7 +84,6 @@ const server = http.createServer((req, res) => {
             const data = JSON.parse(body || '{}');
 
             if (req.method === 'PATCH') {
-                // 신규 프로젝트 생성
                 const { projectName } = data;
                 if (!projectName) {
                     res.writeHead(400);
@@ -75,6 +98,7 @@ const server = http.createServer((req, res) => {
 
                 fs.mkdirSync(newPath, { recursive: true });
                 fs.writeFileSync(path.join(newPath, 'remote_tasks.md'), `# ${projectName}\n\nProject initialized via Antigravity Link.\n`);
+                fs.writeFileSync(path.join(newPath, 'remote_responses.md'), `Agent responses for ${projectName} will appear here.\n\n---\n\n`);
                 
                 console.log(`[Creation] 🆕 New Project created: ${projectName}`);
                 res.writeHead(201, { 'Content-Type': 'application/json' });
@@ -110,6 +134,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`\n🚀 Antigravity Link: Bridge with Project Creation Active`);
+    console.log(`\n🚀 Antigravity Link: Bridge with Bidirectional Comm Active`);
     console.log(`🛰️  Listening on port ${PORT}\n`);
 });
