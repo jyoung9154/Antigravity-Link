@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 interface Workspace {
   id: string;
   name: string;
+  active?: boolean;
 }
 
 export default function Home() {
@@ -13,16 +14,26 @@ export default function Home() {
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [sender, setSender] = useState('Mobile User');
+  const [loading, setLoading] = useState(true);
+
+  const fetchWorkspaces = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/tasks');
+      const data = await res.json();
+      setWorkspaces(data.workspaces || []);
+      if (data.workspaces?.length > 0 && !selectedWorkspace) {
+        setSelectedWorkspace(data.workspaces[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to fetch workspaces');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/tasks')
-      .then(res => res.json())
-      .then(data => {
-        setWorkspaces(data.workspaces);
-        if (data.workspaces.length > 0) {
-          setSelectedWorkspace(data.workspaces[0].id);
-        }
-      });
+    fetchWorkspaces();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,6 +60,8 @@ export default function Home() {
     }
   };
 
+  const isBridgeOffline = workspaces.some(w => w.id === 'error');
+
   return (
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: '24px', padding: '32px', maxWidth: '800px', margin: '0 auto' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -58,18 +71,25 @@ export default function Home() {
           </h1>
           <p style={{ opacity: 0.5, marginTop: '4px' }}>Control your workspace from anywhere</p>
         </div>
+        <button 
+          onClick={fetchWorkspaces}
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' }}
+        >
+          {loading ? 'Scanning...' : 'Refresh'}
+        </button>
       </header>
 
       {/* Workspace Selector (Round Pill Buttons) */}
       <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <h3 style={{ fontSize: '0.9rem', fontWeight: 600, opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Select Workspace
+          Select Active Agent
         </h3>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
           {workspaces.map(ws => (
             <button
               key={ws.id}
               onClick={() => setSelectedWorkspace(ws.id)}
+              disabled={ws.id === 'error'}
               style={{
                 padding: '10px 24px',
                 borderRadius: '30px',
@@ -78,14 +98,19 @@ export default function Home() {
                 color: selectedWorkspace === ws.id ? 'white' : 'rgba(255,255,255,0.5)',
                 fontWeight: 600,
                 fontSize: '0.95rem',
-                cursor: 'pointer',
+                cursor: ws.id === 'error' ? 'default' : 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                boxShadow: selectedWorkspace === ws.id ? '0 0 15px rgba(139, 92, 246, 0.2)' : 'none'
+                boxShadow: selectedWorkspace === ws.id ? '0 0 15px rgba(139, 92, 246, 0.2)' : 'none',
+                opacity: ws.id === 'error' ? 0.5 : 1
               }}
             >
+              <span style={{ marginRight: '6px' }}>{ws.id === 'error' ? '🔴' : '🟢'}</span>
               {ws.name}
             </button>
           ))}
+          {workspaces.length === 0 && !loading && (
+            <p style={{ fontSize: '0.9rem', opacity: 0.4 }}>No active workspaces found.</p>
+          )}
         </div>
       </section>
 
@@ -94,7 +119,8 @@ export default function Home() {
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Describe the task for the agent..."
+          placeholder={isBridgeOffline ? "Bridge is offline. Check Cloudflare Tunnel." : "Describe the task for the agent..."}
+          disabled={isBridgeOffline}
           style={{
             flex: 1,
             width: '100%',
@@ -105,7 +131,8 @@ export default function Home() {
             lineHeight: '1.6',
             resize: 'none',
             outline: 'none',
-            padding: '0'
+            padding: '0',
+            opacity: isBridgeOffline ? 0.3 : 1
           }}
         />
         
@@ -121,7 +148,7 @@ export default function Home() {
           
           <button
             type="submit"
-            disabled={status === 'sending'}
+            disabled={status === 'sending' || isBridgeOffline || !message.trim()}
             className="premium-gradient glow-effect"
             style={{
               padding: '12px 32px',
@@ -131,7 +158,7 @@ export default function Home() {
               fontWeight: 700,
               fontSize: '1rem',
               cursor: 'pointer',
-              opacity: status === 'sending' ? 0.7 : 1,
+              opacity: (status === 'sending' || isBridgeOffline || !message.trim()) ? 0.5 : 1,
               transition: 'transform 0.2s',
               minWidth: '140px'
             }}
@@ -145,15 +172,17 @@ export default function Home() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
           <div className="glass" style={{ padding: '16px', textAlign: 'center' }}>
               <p style={{ opacity: 0.4, fontSize: '0.7rem', textTransform: 'uppercase' }}>System</p>
-              <p style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '4px', color: '#10b981' }}>Cloud-Link</p>
+              <p style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '4px', color: isBridgeOffline ? '#ef4444' : '#10b981' }}>
+                {isBridgeOffline ? 'Offline' : 'Online'}
+              </p>
           </div>
           <div className="glass" style={{ padding: '16px', textAlign: 'center' }}>
-              <p style={{ opacity: 0.4, fontSize: '0.7rem', textTransform: 'uppercase' }}>Target</p>
-              <p style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '4px' }}>{workspaces.find(w => w.id === selectedWorkspace)?.name || 'None'}</p>
+              <p style={{ opacity: 0.4, fontSize: '0.7rem', textTransform: 'uppercase' }}>Available</p>
+              <p style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '4px' }}>{workspaces.length} Agents</p>
           </div>
           <div className="glass" style={{ padding: '16px', textAlign: 'center' }}>
-              <p style={{ opacity: 0.4, fontSize: '0.7rem', textTransform: 'uppercase' }}>Status</p>
-              <p style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '4px' }}>Healthy</p>
+              <p style={{ opacity: 0.4, fontSize: '0.7rem', textTransform: 'uppercase' }}>Discovery</p>
+              <p style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '4px' }}>Dynamic</p>
           </div>
       </div>
     </main>
