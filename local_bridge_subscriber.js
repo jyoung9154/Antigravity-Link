@@ -1,7 +1,14 @@
+require('dotenv').config();
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
+const { exec } = require('child_process');
+const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
+
+// Initialize Gemini with User API Key or environment variable
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyCniUsE4fsmsLsJGLDX76dT8sqR4sXsN6U');
+
 
 const PORT = 3001;
 const PLAYGROUND_ROOT = '/Users/jaeyoung/.gemini/antigravity/playground';
@@ -39,6 +46,99 @@ function discoverWorkspaces() {
         } catch (err) {}
     });
     return discovered;
+}
+
+// ============================================
+// Mini Autonomous Agent Loop (Gemini ReAct)
+// ============================================
+async function executeAgentTask(workspacePath, taskMessage) {
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+        systemInstruction: "You are an elite coding agent executing tasks inside a specific workspace. You have access to tools to read, edit, and run commands. Complete the user's task accurately. Do not stop until you have verified success (e.g. by running tests, building, or looking at git diff). After completion, you must ALWAYS output your final summary in Korean.",
+        tools: [{
+            functionDeclarations: [
+                {
+                    name: "readFile",
+                    description: "Read a file from the workspace",
+                    parameters: { type: SchemaType.OBJECT, properties: { filePath: { type: SchemaType.STRING, description: "Relative path from workspace root" } }, required: ["filePath"] }
+                },
+                {
+                    name: "writeFile",
+                    description: "Write or overwrite a file in the workspace",
+                    parameters: { type: SchemaType.OBJECT, properties: { filePath: { type: SchemaType.STRING, description: "Relative path" }, contents: { type: SchemaType.STRING, description: "Full new file contents" } }, required: ["filePath", "contents"] }
+                },
+                {
+                    name: "runCommand",
+                    description: "Run a bash terminal command in the workspace directory",
+                    parameters: { type: SchemaType.OBJECT, properties: { command: { type: SchemaType.STRING, description: "Bash command to execute" } }, required: ["command"] }
+                }
+            ]
+        }]
+    });
+
+    const chat = model.startChat({ history: [] });
+    let prompt = `Task: ${taskMessage}\nWorkspace: ${workspacePath}`;
+    let isDone = false;
+    let finalResponse = "";
+
+    console.log(`[Agent Vibe] 🤖 Waking up to process task in ${workspacePath}...`);
+
+    while (!isDone) {
+        try {
+            const result = await chat.sendMessage(prompt);
+            const calls = result.response.functionCalls ? result.response.functionCalls() : null;
+            const call = calls && calls.length > 0 ? calls[0] : null;
+
+            if (call) {
+                console.log(`[Agent Tool] 🛠️  ${call.name} called with args => ${JSON.stringify(call.args).substring(0, 80)}...`);
+                let funcResult = "";
+                try {
+                    const fullPath = call.args.filePath ? path.join(workspacePath, call.args.filePath) : '';
+                    if (call.name === "readFile") {
+                        if (!fs.existsSync(fullPath)) funcResult = "Error: File does not exist";
+                        else funcResult = fs.readFileSync(fullPath, 'utf8');
+                    } else if (call.name === "writeFile") {
+                        fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+                        fs.writeFileSync(fullPath, call.args.contents);
+                        funcResult = "Success: File written";
+                    } else if (call.name === "runCommand") {
+                        funcResult = await new Promise((resolve) => {
+                            exec(call.args.command, { cwd: workspacePath }, (err, stdout, stderr) => {
+                                resolve(`STDOUT:\n${stdout}\nSTDERR:\n${stderr}\nError:\n${err ? err.message : 'null'}`);
+                            });
+                        });
+                    }
+                } catch (e) {
+                    funcResult = `Error: ${e.message}`;
+                }
+
+                // Truncate funcResult to avoid token overflow
+                funcResult = funcResult.slice(0, 30000);
+                
+                prompt = [{
+                    functionResponse: {
+                        name: call.name,
+                        response: { result: funcResult }
+                    }
+                }];
+            } else {
+                isDone = true;
+                finalResponse = result.response.text();
+            }
+        } catch (error) {
+            console.error(`[Agent Fatal Error] 🛑`, error);
+            finalResponse = `Agent encountered a fatal error: ${error.message}`;
+            isDone = true;
+        }
+    }
+    
+    console.log(`[Agent Vibe] ✨ Task completed.`);
+    return finalResponse;
+}
+
+function getKSTTimestamp() {
+    const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    return kstDate.toISOString().replace('T', ' ').substring(0, 19);
 }
 
 const server = http.createServer((req, res) => {
@@ -116,11 +216,20 @@ const server = http.createServer((req, res) => {
                 }
 
                 const taskFile = path.join(target.path, 'remote_tasks.md');
-                const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+                const timestamp = getKSTTimestamp();
                 const logEntry = `## [${timestamp}] From: ${sender || 'Mobile User'}\n\n${message}\n\n---\n\n`;
 
                 fs.appendFileSync(taskFile, logEntry);
-                console.log(`[${timestamp}] 📡 Signal for ${target.id}`);
+                console.log(`[${timestamp}] 📡 Signal for ${target.id} - Spawning Autonomous Agent...`);
+
+                // Fire & Forget: Spawn the agent asynchronously
+                executeAgentTask(target.path, message).then(finalRes => {
+                    const responseFile = path.join(target.path, 'remote_responses.md');
+                    const resTimestamp = getKSTTimestamp();
+                    const resEntry = `## [${resTimestamp}] Agent Antigravity (Auto)\n\n${finalRes}\n\n---\n\n`;
+                    fs.appendFileSync(responseFile, resEntry);
+                    console.log(`[${resTimestamp}] ✅ Agent responded to ${target.id}`);
+                });
 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true, timestamp }));

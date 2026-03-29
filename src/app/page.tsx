@@ -68,10 +68,12 @@ export default function Home() {
         if (res.ok) {
            const data = await res.json();
            if (data.content !== undefined) {
-             if (responses && data.content.length > responses.length) {
-               setIsWaiting(false);
-             }
-             setResponses(data.content);
+             setResponses((prev) => {
+               if (data.content.length > prev.length) {
+                 setIsWaiting(false);
+               }
+               return data.content;
+             });
            }
         }
       } catch (err) {
