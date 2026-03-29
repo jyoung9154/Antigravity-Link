@@ -21,6 +21,9 @@ export default function Home() {
   
   // Real-time bidirectional state
   const [responses, setResponses] = useState<string>('');
+  const [displayResponses, setDisplayResponses] = useState<string>('');
+  const [weekOffset, setWeekOffset] = useState<number>(0);
+  const [hasMore, setHasMore] = useState<boolean>(false);
   const [isWaiting, setIsWaiting] = useState(false);
   const [loadingFrame, setLoadingFrame] = useState(0);
   const responseAreaRef = useRef<HTMLDivElement>(null);
@@ -74,6 +77,30 @@ export default function Home() {
                }
                return data.content;
              });
+
+             // Filter logic for weekly memory
+             const entries = data.content.split('---\n\n').filter((e: string) => e.trim());
+             const now = Date.now();
+             const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+             let olderExist = false;
+             
+             const visible = entries.filter((entry: string) => {
+                 const match = entry.match(/## \[([^\]]+)\]/);
+                 if (match) {
+                     const entryTime = new Date(match[1]).getTime();
+                     if (!isNaN(entryTime)) {
+                         const diff = now - entryTime;
+                         if (diff > (weekOffset + 1) * msPerWeek) {
+                             olderExist = true;
+                             return false;
+                         }
+                     }
+                 }
+                 return true;
+             });
+
+             setDisplayResponses(visible.join('\n---\n\n') + (visible.length ? '\n---\n\n' : ''));
+             setHasMore(olderExist);
            }
         }
       } catch (err) {
@@ -84,14 +111,14 @@ export default function Home() {
     fetchResponses(); // Initial fetch
     const interval = setInterval(fetchResponses, 3000); // Poll every 3 seconds
     return () => clearInterval(interval);
-  }, [selectedWorkspace]);
+  }, [selectedWorkspace, weekOffset]);
 
   // Auto-scroll when responses are updated
   useEffect(() => {
     if (responseAreaRef.current) {
       responseAreaRef.current.scrollTop = responseAreaRef.current.scrollHeight;
     }
-  }, [responses]);
+  }, [displayResponses, isWaiting]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,7 +247,14 @@ export default function Home() {
           background: 'rgba(0,0,0,0.2)'
         }}
       >
-        {responses ? responses : (isBridgeOffline ? "Cannot reach agent workspace." : "No responses yet. Send a task to begin.")}
+        {hasMore && (
+           <button 
+             onClick={() => setWeekOffset(w => w + 1)}
+             style={{ alignSelf: 'center', marginBottom: '16px', background: 'rgba(255,255,255,0.1)', border: 'none', padding: '6px 16px', color: 'white', borderRadius: '20px', cursor: 'pointer', fontSize: '0.8rem' }}>
+             ↑ Load Previous Week
+           </button>
+        )}
+        {displayResponses ? displayResponses : (isBridgeOffline ? "Cannot reach agent workspace." : "No responses yet. Send a task to begin.")}
         {isWaiting && (
           <div style={{ color: '#8b5cf6', marginTop: '8px', fontWeight: 'bold' }}>
             {frames[loadingFrame]} Agent is processing your request...
