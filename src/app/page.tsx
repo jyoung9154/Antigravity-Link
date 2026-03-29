@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import AgentOffice from '@/components/3d/AgentOffice';
 
 interface Workspace {
   id: string;
@@ -25,6 +26,7 @@ export default function Home() {
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [isWaiting, setIsWaiting] = useState(false);
+  const [viewMode, setViewMode] = useState<'console' | '3d'>('3d');
   const [loadingFrame, setLoadingFrame] = useState(0);
   const responseAreaRef = useRef<HTMLDivElement>(null);
 
@@ -197,6 +199,22 @@ export default function Home() {
           </button>
         </div>
       </header>
+      
+      {/* View Toggle */}
+      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+        <button 
+          onClick={() => setViewMode('console')}
+          style={{ flex: 1, padding: '8px', borderRadius: '8px', background: viewMode === 'console' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.05)', border: viewMode === 'console' ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.1)', color: viewMode === 'console' ? '#c4b5fd' : 'white', fontWeight: viewMode === 'console' ? 'bold' : 'normal', cursor: 'pointer', transition: 'all 0.2s' }}
+        >
+          Console
+        </button>
+        <button 
+          onClick={() => setViewMode('3d')}
+          style={{ flex: 1, padding: '8px', borderRadius: '8px', background: viewMode === '3d' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.05)', border: viewMode === '3d' ? '1px solid #8b5cf6' : '1px solid rgba(255,255,255,0.1)', color: viewMode === '3d' ? '#c4b5fd' : 'white', fontWeight: viewMode === '3d' ? 'bold' : 'normal', cursor: 'pointer', transition: 'all 0.2s' }}
+        >
+          3D Office
+        </button>
+      </div>
 
       {/* Workspace Selector */}
       <section style={{ flexShrink: 0 }}>
@@ -228,39 +246,45 @@ export default function Home() {
         </select>
       </section>
 
-      {/* Real-time Response Display Area */}
-      <section 
-        ref={responseAreaRef}
-        className="glass" 
-        style={{ 
-          flex: 1, 
-          overflowY: 'auto', 
-          padding: '16px', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '8px', 
-          fontFamily: 'monospace',
-          fontSize: '0.85rem',
-          lineHeight: '1.4',
-          color: 'rgba(255,255,255,0.8)',
-          whiteSpace: 'pre-wrap',
-          background: 'rgba(0,0,0,0.2)'
-        }}
-      >
-        {hasMore && (
-           <button 
-             onClick={() => setWeekOffset(w => w + 1)}
-             style={{ alignSelf: 'center', marginBottom: '16px', background: 'rgba(255,255,255,0.1)', border: 'none', padding: '6px 16px', color: 'white', borderRadius: '20px', cursor: 'pointer', fontSize: '0.8rem' }}>
-             ↑ Load Previous Week
-           </button>
-        )}
-        {displayResponses ? displayResponses : (isBridgeOffline ? "Cannot reach agent workspace." : "No responses yet. Send a task to begin.")}
-        {isWaiting && (
-          <div style={{ color: '#8b5cf6', marginTop: '8px', fontWeight: 'bold' }}>
-            {frames[loadingFrame]} Agent is processing your request...
-          </div>
-        )}
-      </section>
+      {/* Main Content Area */}
+      {viewMode === '3d' ? (
+        <section style={{ flex: 1, minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
+          <AgentOffice isWorking={isWaiting} currentTask={message || 'Awaiting Task...'} />
+        </section>
+      ) : (
+        <section 
+          ref={responseAreaRef}
+          className="glass" 
+          style={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            padding: '16px', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '8px', 
+            fontFamily: 'monospace',
+            fontSize: '0.85rem',
+            lineHeight: '1.4',
+            color: 'rgba(255,255,255,0.8)',
+            whiteSpace: 'pre-wrap',
+            background: 'rgba(0,0,0,0.2)'
+          }}
+        >
+          {hasMore && (
+             <button 
+               onClick={() => setWeekOffset(w => w + 1)}
+               style={{ alignSelf: 'center', marginBottom: '16px', background: 'rgba(255,255,255,0.1)', border: 'none', padding: '6px 16px', color: 'white', borderRadius: '20px', cursor: 'pointer', fontSize: '0.8rem' }}>
+               ↑ Load Previous Week
+             </button>
+          )}
+          {displayResponses ? displayResponses : (isBridgeOffline ? "Cannot reach agent workspace." : "No responses yet. Send a task to begin.")}
+          {isWaiting && (
+            <div style={{ color: '#8b5cf6', marginTop: '8px', fontWeight: 'bold' }}>
+              {frames[loadingFrame]} Agent is processing your request...
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Task Input Area */}
       <form onSubmit={handleSubmit} className="glass" style={{ flexShrink: 0, padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>

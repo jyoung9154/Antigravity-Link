@@ -7,7 +7,7 @@ const { exec } = require('child_process');
 const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
 
 // Initialize Gemini with User API Key or environment variable
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'AIzaSyCniUsE4fsmsLsJGLDX76dT8sqR4sXsN6U');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 
 const PORT = 3001;
@@ -43,7 +43,7 @@ function discoverWorkspaces() {
                     }
                 }
             });
-        } catch (err) {}
+        } catch (err) { }
     });
     return discovered;
 }
@@ -114,7 +114,7 @@ async function executeAgentTask(workspacePath, taskMessage) {
 
                 // Truncate funcResult to avoid token overflow
                 funcResult = funcResult.slice(0, 30000);
-                
+
                 prompt = [{
                     functionResponse: {
                         name: call.name,
@@ -131,7 +131,7 @@ async function executeAgentTask(workspacePath, taskMessage) {
             isDone = true;
         }
     }
-    
+
     console.log(`[Agent Vibe] ✨ Task completed.`);
     return finalResponse;
 }
@@ -144,9 +144,19 @@ function getKSTTimestamp() {
 const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-bridge-token');
 
     if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+
+    // 🛡️ Security Hardening: Require x-bridge-token
+    const expectedToken = process.env.BRIDGE_API_KEY || 'antigravity-secure-link';
+    const providedToken = req.headers['x-bridge-token'];
+
+    if (providedToken !== expectedToken) {
+        console.warn(`[Security] 🚫 Unauthorized access attempt blocked. Provided token: ${providedToken ? 'Invalid' : 'None'}`);
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Unauthorized: Invalid Bridge Token' }));
+    }
 
     const parsedUrl = url.parse(req.url, true);
 
@@ -199,7 +209,7 @@ const server = http.createServer((req, res) => {
                 fs.mkdirSync(newPath, { recursive: true });
                 fs.writeFileSync(path.join(newPath, 'remote_tasks.md'), `# ${projectName}\n\nProject initialized via Antigravity Link.\n`);
                 fs.writeFileSync(path.join(newPath, 'remote_responses.md'), `Agent responses for ${projectName} will appear here.\n\n---\n\n`);
-                
+
                 console.log(`[Creation] 🆕 New Project created: ${projectName}`);
                 res.writeHead(201, { 'Content-Type': 'application/json' });
                 return res.end(JSON.stringify({ success: true, id: projectName }));

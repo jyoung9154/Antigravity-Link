@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
 
 const BRIDGE_URL = process.env.LOCAL_BRIDGE_URL;
+const BRIDGE_TOKEN = process.env.BRIDGE_API_KEY || 'antigravity-secure-link';
 
 export async function POST(request: Request) {
   try {
@@ -10,7 +9,10 @@ export async function POST(request: Request) {
     if (process.env.VERCEL === '1' && BRIDGE_URL) {
       const bridgeRes = await fetch(BRIDGE_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-bridge-token': BRIDGE_TOKEN
+        },
         body: JSON.stringify(data),
       });
       return NextResponse.json(await bridgeRes.json());
@@ -28,7 +30,10 @@ export async function PATCH(request: Request) {
       console.log('Forwarding PATCH to Bridge:', BRIDGE_URL);
       const bridgeRes = await fetch(BRIDGE_URL, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-bridge-token': BRIDGE_TOKEN
+        },
         body: JSON.stringify(data),
       });
       return NextResponse.json(await bridgeRes.json());
@@ -42,7 +47,12 @@ export async function PATCH(request: Request) {
 export async function GET() {
   try {
     if (process.env.VERCEL === '1' && BRIDGE_URL) {
-      const bridgeRes = await fetch(BRIDGE_URL, { cache: 'no-store' });
+      const bridgeRes = await fetch(BRIDGE_URL, { 
+        cache: 'no-store',
+        headers: {
+          'x-bridge-token': BRIDGE_TOKEN
+        }
+      });
       return NextResponse.json(await bridgeRes.json());
     }
     return NextResponse.json({ workspaces: [{ id: 'error', name: 'Bridge Offline' }] });
