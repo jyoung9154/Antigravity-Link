@@ -50,14 +50,24 @@ export default function LoginPage() {
       {/* Main Container */}
       <div className="login-wrapper">
         
-        {/* Logo Section */}
+        {/* Logo Section (High-Fidelity Inlined SVG) */}
         <div className="login-logo-section">
           <div className="login-logo-container">
-            <img 
-              src="/antigravity_logo.png" 
-              alt="Antigravity Logo" 
-              className="login-logo-img"
-            />
+            <svg width="120" height="120" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#22d3ee" />
+                  <stop offset="100%" stopColor="#a855f7" />
+                </linearGradient>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="5" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+              <circle cx="100" cy="100" r="40" stroke="url(#logoGrad)" strokeWidth="6" filter="url(#glow)" />
+              <path d="M100 20 L160 160 L40 160 Z" stroke="url(#logoGrad)" strokeWidth="8" strokeLinejoin="round" filter="url(#glow)" />
+              <circle cx="100" cy="100" r="15" fill="url(#logoGrad)" />
+            </svg>
           </div>
           <div className="login-title-section">
             <h1 className="login-main-title">ANTIGRAVITY</h1>
