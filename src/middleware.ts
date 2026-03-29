@@ -2,31 +2,23 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  const basicAuth = req.headers.get('authorization');
+  const { pathname } = req.nextUrl;
 
-  const user = process.env.AUTH_USER || 'antigravity';
-  const pwd = process.env.AUTH_PASS || 'link';
-
-  if (basicAuth) {
-    try {
-      const authValue = basicAuth.split(' ')[1];
-      const decoded = atob(authValue);
-      const [providedUser, providedPwd] = decoded.split(':');
-
-      if (providedUser === user && providedPwd === pwd) {
-        return NextResponse.next();
-      }
-    } catch (e) {
-      console.error('Auth decoding failed', e);
-    }
+  // 1. Skip auth for login page and API routes
+  if (pathname === '/login' || pathname.startsWith('/api/login')) {
+    return NextResponse.next();
   }
 
-  return new NextResponse('Authentication Required', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': 'Basic realm="Antigravity"',
-    },
-  });
+  // 2. Check for the auth cookie
+  const authToken = req.cookies.get('antigravity_session');
+
+  // 3. If no cookie, redirect to login
+  if (!authToken) {
+    const loginUrl = new URL('/login', req.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {

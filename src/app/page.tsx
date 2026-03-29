@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import AgentOffice from '@/components/3d/AgentOffice';
 
 interface Workspace {
@@ -19,6 +20,7 @@ export default function Home() {
   const [showModal, setShowModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [creating, setCreating] = useState(false);
+  const router = useRouter();
   
   // Real-time bidirectional state
   const [responses, setResponses] = useState<string>('');
@@ -174,6 +176,14 @@ export default function Home() {
     }
   };
 
+  const handleLogout = async () => {
+    if (confirm('Are you sure you want to log out?')) {
+      await fetch('/api/login', { method: 'DELETE' });
+      router.push('/login');
+      router.refresh();
+    }
+  };
+
   const isBridgeOffline = workspaces.some(w => w.id === 'error');
 
   return (
@@ -196,6 +206,12 @@ export default function Home() {
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' }}
           >
             {loading ? '...' : 'Refresh'}
+          </button>
+          <button 
+            onClick={handleLogout}
+            style={{ background: 'rgba(255,100,100,0.1)', border: '1px solid rgba(255,100,100,0.2)', color: '#ff8080', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.8rem' }}
+          >
+            Logout
           </button>
         </div>
       </header>
